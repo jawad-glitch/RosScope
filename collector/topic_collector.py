@@ -53,14 +53,29 @@ class TopicCollector(Node):
             if topic_name not in active_topics:
                 is_anomaly, z_score = self.anomaly_detector.check(topic_name, 0.0)
                 self.anomaly_detector.update(topic_name, 0.0)
-                if is_anomaly:
+                if is_anomaly and self.exporter:
+                    msg_type = self.topic_types.get(topic_name, 'unknown')
+                    self.exporter.topic_anomaly.labels(
+                        topic=topic_name, msg_type=msg_type
+                    ).set(1)
+                    self.exporter.topic_z_score.labels(
+                        topic=topic_name, msg_type=msg_type
+                    ).set(z_score)
                     self.get_logger().warn(
-                        f'ANOMALY: {topic_name} dropped to 0 Hz (z={z_score})'
+                        f'ANOMALY DETECTED: {topic_name} dropped to 0Hz (z={z_score})'
                     )
 
-        # Clean up dead topics
+        # Zero out metrics then clean up dead topics
         for topic_name in list(self.topic_counts.keys()):
             if topic_name not in active_topics:
+                if self.exporter:
+                    msg_type = self.topic_types.get(topic_name, 'unknown')
+                    self.exporter.topic_publisher_count.labels(
+                        topic=topic_name, msg_type=msg_type
+                    ).set(0)
+                    self.exporter.topic_rate_hz.labels(
+                        topic=topic_name, msg_type=msg_type
+                    ).set(0)
                 del self.topic_counts[topic_name]
                 del self.topic_types[topic_name]
                 if topic_name in self.subscribers:
