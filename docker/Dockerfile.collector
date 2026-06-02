@@ -10,6 +10,7 @@ EXPOSE 8001
 WORKDIR /rosscope
 COPY collector/ ./collector/
 COPY exporter/ ./exporter/
+COPY dashboard/ ./dashboard/
 COPY main.py .
 
 CMD ["/bin/bash", "-c", "source /opt/ros/humble/setup.bash && python3 main.py"]

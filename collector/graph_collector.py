@@ -5,6 +5,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import threading
+from fastapi.responses import FileResponse
+import os
 
 # ── FastAPI setup ────
 app = FastAPI()
@@ -57,6 +59,10 @@ def get_graph():
 def health():
     return {"status": "ok", "edges": len(_collector.edges) if _collector else 0}
 
+@app.get("/")
+def serve_graph_ui():
+    html_path = os.path.join(os.path.dirname(__file__), '..', 'dashboard', 'graph.html')
+    return FileResponse(html_path)
 
 def start_api(collector_node):
     global _collector

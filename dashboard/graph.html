@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROS 2 Network Graph Tracker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background-color: #0f1115;
+            color: #e2e8f0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+        }
+        
+        /* Master Layout Layouts */
+        #viewport-wrapper {
+            position: relative;
+            flex-grow: 1;
+            height: 100vh;
+        }
+        #graph-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Tooltip styling */
+        .tooltip {
+            position: absolute;
+            background: rgba(23, 27, 34, 0.95);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #38bdf8;
+            font-size: 13px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            font-family: monospace;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        /* Overlays & UI Controls */
+        .header {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            z-index: 5;
+        }
+        .header h1 {
+            font-size: 1.25rem;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .status {
+            font-size: 0.8rem;
+            color: #10b981;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        /* Controls Cluster (Top-Right Map View) */
+        .controls-cluster {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 5;
+            width: 300px;
+        }
+        .search-box {
+            width: 100%;
+            background: rgba(23, 27, 34, 0.85);
+            border: 1px solid #334155;
+            border-radius: 6px;
+            padding: 10px 14px;
+            color: #fff;
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color 0.2s;
+            backdrop-filter: blur(4px);
+        }
+        .search-box:focus {
+            border-color: #38bdf8;
+        }
+        
+        /* Stats Dashboard Panel */
+        .stats-bar {
+            background: rgba(23, 27, 34, 0.85);
+            border: 1px solid #27272a;
+            border-radius: 6px;
+            padding: 12px;
+            backdrop-filter: blur(4px);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        .stat-item .val {
+            font-family: monospace;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #f8fafc;
+        }
+        .stat-item .lbl {
+            font-size: 0.65rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+        }
+        .timestamp {
+            font-size: 0.7rem;
+            color: #64748b;
+            text-align: right;
+            font-family: monospace;
+        }
+
+        /* Map Legend Element Block */
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(23, 27, 34, 0.85);
+            border: 1px solid #27272a;
+            border-radius: 6px;
+            padding: 12px;
+            z-index: 5;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 0.8rem;
+            backdrop-filter: blur(4px);
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #94a3b8;
+        }
+        .legend-shape {
+            width: 14px;
+            height: 14px;
+            display: inline-block;
+        }
+        .shape-node { background: #38bdf8; border-radius: 50%; border: 1px solid #0284c7; }
+        .shape-topic { background: #34d399; transform: rotate(45deg); border: 1px solid #059669; width: 10px; height: 10px; margin-left: 2px; }
+        .line-pub { height: 2px; background: #64748b; width: 16px; }
+        .line-sub { height: 2px; border-bottom: 2px dashed #475569; width: 16px; }
+
+        /* Dynamic Side Info Drawer Component */
+        #info-panel {
+            width: 360px;
+            height: 100vh;
+            background: #13161c;
+            border-left: 1px solid #222731;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: -4px 0 24px rgba(0,0,0,0.4);
+            z-index: 6;
+            overflow-y: auto;
+            display: none; /* Initially hidden */
+        }
+        .panel-header h2 {
+            font-size: 1.1rem;
+            word-break: break-all;
+            color: #fff;
+            margin-bottom: 4px;
+            font-family: monospace;
+        }
+        .badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .badge-node { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3); }
+        .badge-topic { background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52,211,153,0.3); }
+        
+        .panel-section-title {
+            font-size: 0.75rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #222731;
+            padding-bottom: 6px;
+            margin-bottom: 10px;
+        }
+        .connection-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 0.85rem;
+        }
+        .connection-item {
+            font-family: monospace;
+            background: #1a1f26;
+            padding: 6px 10px;
+            border-radius: 4px;
+            word-break: break-all;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .conn-tag {
+            font-size: 0.65rem;
+            color: #64748b;
+            text-transform: uppercase;
+        }
+        .conn-target { color: #cbd5e1; }
+        .empty-state { font-size: 0.8rem; color: #475569; italic: true; }
+
+        /* Typography & Styles Inside SVG Group Selections */
+        .node-text {
+            font-size: 11px;
+            fill: #94a3b8;
+            pointer-events: none;
+            font-family: monospace;
+        }
+        
+        /* Interactive Highlight Utility CSS Properties */
+        .dimmed { opacity: 0.15 !important; transition: opacity 0.2s ease; }
+        .highlighted-node circle, .highlighted-node path { stroke: #fff !important; stroke-width: 3px !important; }
+        .highlighted-edge { stroke: #f43f5e !important; stroke-width: 3px !important; opacity: 1 !important; }
+        .search-match circle, .search-match path { stroke: #f59e0b !important; stroke-width: 3px !important; }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="viewport-wrapper">
+        <div class="header">
+            <h1>Topology Map</h1>
+            <div class="status"><div class="status-dot"></div> Live polling (5s)</div>
+        </div>
+
+        <div class="controls-cluster">
+            <input type="text" id="node-search" class="search-box" placeholder="Search node or topic name..." autocomplete="off">
+            
+            <div class="stats-bar">
+                <div class="stats-grid">
+                    <div class="stat-item"><div class="val" id="stat-nodes">0</div><div class="lbl">Nodes</div></div>
+                    <div class="stat-item"><div class="val" id="stat-topics">0</div><div class="lbl">Topics</div></div>
+                    <div class="stat-item"><div class="val" id="stat-edges">0</div><div class="lbl">Edges</div></div>
+                </div>
+                <div class="timestamp" id="stat-time">Last update: --:--:--</div>
+            </div>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item"><span class="legend-shape shape-node"></span> ROS 2 Node</div>
+            <div class="legend-item"><span class="legend-shape shape-topic"></span> ROS 2 Topic</div>
+            <div class="legend-item"><span class="line-pub"></span> Publishes Edge</div>
+            <div class="legend-item"><span class="line-sub"></span> Subscribes Edge</div>
+        </div>
+
+        <div id="graph-container"></div>
+        <div id="tooltip" class="tooltip"></div>
+    </div>
+
+    <div id="info-panel">
+        <div class="panel-header">
+            <h2 id="panel-title">/node_name</h2>
+            <span id="panel-type-badge" class="badge badge-node">ROS 2 Node</span>
+        </div>
+        
+        <div id="panel-topic-metrics" style="display:none;">
+            <div class="panel-section-title">Topic Metadata</div>
+            <div class="stats-grid" style="text-align: left;">
+                <div class="stat-item"><div class="val" id="topic-pub-count">0</div><div class="lbl">Publishers</div></div>
+                <div class="stat-item"><div class="val" id="topic-sub-count">0</div><div class="lbl">Subscribers</div></div>
+            </div>
+        </div>
+
+        <div id="panel-connections-section">
+            <div class="panel-section-title">Connected Relationships</div>
+            <ul id="panel-connections-list" class="connection-list">
+                </ul>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8001/api/graph';
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        let selectedNodeId = null;
+
+        // Create base SVG canvas
+        const svg = d3.select("#graph-container")
+            .append("svg")
+            .attr("width", "100%")
+            .attr("height", "100%");
+
+        // Zoom and pan container
+        const container = svg.append("g");
+        svg.call(d3.zoom().scaleExtent([0.2, 4]).on("zoom", (event) => {
+            container.attr("transform", event.transform);
+        }));
+
+        // Define Marker Arrows for Edges
+        const defs = svg.append("defs");
+        
+        defs.append("marker")
+            .attr("id", "arrow-publishes")
+            .attr("viewBox", "0 -5 10 10")
+            .attr("refX", 24) 
+            .attr("refY", 0)
+            .attr("markerWidth", 5)
+            .attr("markerHeight", 5)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,-5L10,0L0,5")
+            .attr("fill", "#64748b");
+
+        defs.append("marker")
+            .attr("id", "arrow-subscribes")
+            .attr("viewBox", "0 -5 10 10")
+            .attr("refX", 22)
+            .attr("refY", 0)
+            .attr("markerWidth", 5)
+            .attr("markerHeight", 5)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,-5L10,0L0,5")
+            .attr("fill", "#475569");
+
+        let linkGroup = container.append("g").attr("class", "links");
+        let nodeGroup = container.append("g").attr("class", "nodes");
+
+        const tooltip = d3.select("#tooltip");
+
+        let nodes = [];
+        let links = [];
+
+        // Initialize Force Simulation
+        const simulation = d3.forceSimulation()
+            .force("link", d3.forceLink().id(d => d.id).distance(140))
+            .force("charge", d3.forceManyBody().strength(-400))
+            .force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2))
+            .force("collision", d3.forceCollide().radius(45));
+
+        // Helper string truncation engine
+        function truncateLabel(text, maxChars = 16) {
+            return text.length > maxChars ? text.substring(0, maxChars) + '...' : text;
+        }
+
+        async function fetchAndUpdateGraph() {
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                
+                // Refresh dashboard stats interface indicators
+                updateDashboardStats(data.nodes, data.edges);
+                
+                updateGraph(data.nodes, data.edges);
+
+                // If a node is active in the inspector panel, dynamically push structural updates
+                if (selectedNodeId) {
+                    const activeNode = nodes.find(n => n.id === selectedNodeId);
+                    if (activeNode) populateInfoPanel(activeNode);
+                }
+            } catch (error) {
+                console.error("Error pulling topology framework mapping arrays:", error);
+            }
+        }
+
+        function updateDashboardStats(rawNodes, rawEdges) {
+            const nodeCount = rawNodes.filter(n => n.type === 'node').length;
+            const topicCount = rawNodes.filter(n => n.type === 'topic').length;
+            
+            document.getElementById('stat-nodes').innerText = nodeCount;
+            document.getElementById('stat-topics').innerText = topicCount;
+            document.getElementById('stat-edges').innerText = rawEdges.length;
+            
+            const now = new Date();
+            document.getElementById('stat-time').innerText = `Last update: ${now.toTimeString().split(' ')[0]}`;
+        }
+
+        function updateGraph(newNodes, newLinks) {
+            const nodeMap = new Map(nodes.map(n => [n.id, n]));
+            
+            nodes = newNodes.map(d => {
+                const existing = nodeMap.get(d.id);
+                return existing ? Object.assign(existing, d) : d;
+            });
+
+            links = newLinks.map(d => Object.assign({}, d));
+
+            // --- LINK SELECTION ---
+            const link = linkGroup.selectAll("line")
+                .data(links, d => `${d.source.id || d.source}-${d.target.id || d.target}-${d.type}`);
+
+            link.exit().remove();
+
+            const linkEnter = link.enter().append("line")
+                .attr("stroke", d => d.type === 'publishes' ? '#475569' : '#334155')
+                .attr("stroke-width", d => d.type === 'publishes' ? 2 : 1.5)
+                .attr("stroke-dasharray", d => d.type === 'subscribes' ? "4,4" : "0")
+                .attr("marker-end", d => `url(#arrow-${d.type})`);
+
+            const combinedLinks = linkEnter.merge(link);
+
+            // --- NODE SELECTION ---
+            const node = nodeGroup.selectAll("g")
+                .data(nodes, d => d.id);
+
+            node.exit().remove();
+
+            const nodeEnter = node.enter().append("g")
+                .attr("cursor", "pointer")
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended));
+
+            // Custom Shape Injections
+            nodeEnter.each(function(d) {
+                const el = d3.select(this);
+                if (d.type === 'node') {
+                    el.append("circle")
+                        .attr("r", 14)
+                        .attr("fill", "#38bdf8")
+                        .attr("stroke", "#0284c7")
+                        .attr("stroke-width", 2);
+                } else {
+                    el.append("path")
+                        .attr("d", d3.symbol().type(d3.symbolDiamond).size(200))
+                        .attr("fill", "#34d399")
+                        .attr("stroke", "#059669")
+                        .attr("stroke-width", 2);
+                }
+            });
+
+            // Constant Text Label elements appended below the shape layer
+            nodeEnter.append("text")
+                .attr("class", "node-text")
+                .attr("text-anchor", "middle")
+                .attr("y", 26)
+                .text(d => truncateLabel(d.id));
+
+            const combinedNodes = nodeEnter.merge(node);
+
+            // --- INTERACTION HANDLING LOGIC ---
+            
+            // Hover states: Highlight execution tracking paths
+            combinedNodes.on("mouseover", (event, d) => {
+                tooltip.style("opacity", 1)
+                       .html(`<strong>Type:</strong> ${d.type.toUpperCase()}<br/><strong>ID:</strong> ${d.id}`);
+
+                // Identify neighborhood topology definitions
+                const connectedTargetIds = links.filter(l => (l.source.id === d.id || l.source === d.id)).map(l => l.target.id || l.target);
+                const connectedSourceIds = links.filter(l => (l.target.id === d.id || l.target === d.id)).map(l => l.source.id || l.source);
+                const neighbors = new Set([...connectedTargetIds, ...connectedSourceIds, d.id]);
+
+                // Dim outer layers
+                combinedNodes.classed("dimmed", n => !neighbors.has(n.id));
+                combinedLinks.classed("dimmed", l => !((l.source.id === d.id || l.source === d.id) || (l.target.id === d.id || l.target === d.id)));
+                
+                // Add highlight targeting attributes
+                d3.select(event.currentTarget).classed("highlighted-node", true);
+                combinedLinks.classed("highlighted-edge", l => (l.source.id === d.id || l.source === d.id) || (l.target.id === d.id || l.target === d.id));
+            })
+            .on("mousemove", (event) => {
+                tooltip.style("left", (event.pageX + 15) + "px")
+                       .style("top", (event.pageY - 15) + "px");
+            })
+            .on("mouseleave", (event, d) => {
+                tooltip.style("opacity", 0);
+                
+                // Clear highlight matrices safely
+                combinedNodes.classed("dimmed", false);
+                combinedLinks.classed("dimmed", false);
+                d3.select(event.currentTarget).classed("highlighted-node", false);
+                combinedLinks.classed("highlighted-edge", false);
+            })
+            .on("click", (event, d) => {
+                event.stopPropagation();
+                selectedNodeId = d.id;
+                populateInfoPanel(d);
+            });
+
+            // De-select info panel when clicking on canvas background area
+            svg.on("click", () => {
+                selectedNodeId = null;
+                document.getElementById("info-panel").style.display = "none";
+            });
+
+            // Restart Simulation Configurations
+            simulation.nodes(nodes);
+            simulation.force("link").links(links);
+            // Soft reset alpha calculation curve execution limits
+            if (simulation.alpha() < 0.15) {
+                simulation.alpha(0.3).restart();
+            }
+
+            simulation.on("tick", () => {
+                combinedLinks
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+
+                combinedNodes.attr("transform", d => `translate(${d.x},${d.y})`);
+            });
+
+            // Trigger structural filtering query directly against new nodes on redraw cycles
+            applySearchFilter();
+        }
+
+        // --- INFO PANEL POPULATION ENGINE ---
+        function populateInfoPanel(nodeData) {
+            const panel = document.getElementById("info-panel");
+            const title = document.getElementById("panel-title");
+            const badge = document.getElementById("panel-type-badge");
+            const topicMetrics = document.getElementById("panel-topic-metrics");
+            const connList = document.getElementById("panel-connections-list");
+
+            title.innerText = nodeData.id;
+            connList.innerHTML = ""; 
+
+            if (nodeData.type === 'node') {
+                badge.innerText = "ROS 2 Node";
+                badge.className = "badge badge-node";
+                topicMetrics.style.display = "none";
+            } else {
+                badge.innerText = "ROS 2 Topic";
+                badge.className = "badge badge-topic";
+                topicMetrics.style.display = "block";
+                
+                // Count dynamic input maps across functional topic interfaces
+                const pubs = links.filter(l => (l.target.id === nodeData.id || l.target === nodeData.id));
+                const subs = links.filter(l => (l.source.id === nodeData.id || l.source === nodeData.id));
+                
+                document.getElementById("topic-pub-count").innerText = pubs.length;
+                document.getElementById("topic-sub-count").innerText = subs.length;
+            }
+
+            // Find all contextual graph paths intersecting targeted id
+            const structuralConnections = links.filter(l => 
+                (l.source.id === nodeData.id || l.source === nodeData.id) || 
+                (l.target.id === nodeData.id || l.target === nodeData.id)
+            );
+
+            if (structuralConnections.length === 0) {
+                connList.innerHTML = `<li class="empty-state">No active telemetry routing pathways found.</li>`;
+            } else {
+                structuralConnections.forEach(link => {
+                    const isSource = (link.source.id === nodeData.id || link.source === nodeData.id);
+                    const neighborId = isSource ? (link.target.id || link.target) : (link.source.id || link.source);
+                    
+                    let relationshipTag = "";
+                    if (nodeData.type === 'node') {
+                        relationshipTag = link.type === 'publishes' ? "Publishes To" : "Subscribes From";
+                    } else {
+                        relationshipTag = link.type === 'publishes' ? "Data Received From" : "Sent Downstream To";
+                    }
+
+                    const li = document.createElement("li");
+                    li.className = "connection-item";
+                    li.innerHTML = `
+                        <span class="conn-tag">${relationshipTag}</span>
+                        <span class="conn-target">${neighborId}</span>
+                    `;
+                    connList.appendChild(li);
+                });
+            }
+
+            panel.style.display = "flex";
+        }
+
+        // --- SEARCH ENGINE INTERFACE HOOKS ---
+        const searchInput = document.getElementById("node-search");
+        searchInput.addEventListener("input", applySearchFilter);
+
+        function applySearchFilter() {
+            const query = searchInput.value.toLowerCase().trim();
+            const graphNodes = nodeGroup.selectAll("g");
+
+            if (!query) {
+                graphNodes.classed("search-match", false);
+                return;
+            }
+
+            graphNodes.classed("search-match", d => d.id.toLowerCase().includes(query));
+        }
+
+        // --- DRAG ENGINE ACTIONS ---
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        // Track Window layout shifting transformations
+        window.addEventListener('resize', () => {
+            simulation.force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2)).restart();
+        });
+
+        // Initialize and setup background loop intervals
+        fetchAndUpdateGraph();
+        setInterval(fetchAndUpdateGraph, 5000);
+    </script>
+</body>
+</html>
