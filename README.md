@@ -20,15 +20,15 @@ ROSscope fixes that.
  
 ## Features
  
-- **Topic monitoring** — publish rate (Hz), message count, publisher count per topic
-- **Service monitoring** — discovery and server availability across the fleet
-- **Lifecycle monitoring** — managed node state tracking (unconfigured/inactive/active/finalized)
-- **Anomaly detection** — z-score statistical baseline per topic, no threshold tuning required
-- **Computation graph** — live directed graph of publisher/subscriber relationships
-- **Graph visualization** — interactive D3.js force-directed graph at `http://localhost:8001`
-- **Prometheus exporter** — 15 custom metrics over HTTP, scrape-ready
-- **Grafana dashboard** — pre-built, auto-provisioned, zero manual setup
-- **One command deploy** — `./start.sh`
+- **Topic monitoring** - publish rate (Hz), message count, publisher count per topic
+- **Service monitoring** - discovery and server availability across the fleet
+- **Lifecycle monitoring** - managed node state tracking (unconfigured/inactive/active/finalized)
+- **Anomaly detection** - z-score statistical baseline per topic, no threshold tuning required
+- **Computation graph** - live directed graph of publisher/subscriber relationships
+- **Graph visualization** - interactive D3.js force-directed graph at `http://localhost:8001`
+- **Prometheus exporter** - 15 custom metrics over HTTP, scrape-ready
+- **Grafana dashboard** - pre-built, auto-provisioned, zero manual setup
+- **One command deploy** - `./start.sh`
 ---
  
 ## Architecture
@@ -39,11 +39,11 @@ Your ROS 2 Robot Fleet
         ▼
 ┌──────────────────────────────────────┐
 │         ROSscope Collectors           │
-│  TopicCollector    — Hz, anomaly      │
-│  ServiceCollector  — availability     │
-│  LifecycleCollector— node states      │
-│  GraphCollector    — relationships    │
-│  AnomalyDetector   — z-score ML       │
+│  TopicCollector    - Hz, anomaly      │
+│  ServiceCollector  - availability     │
+│  LifecycleCollector- node states      │
+│  GraphCollector    - relationships    │
+│  AnomalyDetector   - z-score ML       │
 └──────────┬───────────────────────────┘
            │
      ┌─────┴──────┐
@@ -99,7 +99,7 @@ Prometheus and Grafana run in Docker purely for convenience. The collector itsel
  
 ## Anomaly Detection
  
-ROSscope uses a **z-score rolling window** to detect topic rate anomalies automatically — no manual threshold configuration needed.
+ROSscope uses a **z-score rolling window** to detect topic rate anomalies automatically, no manual threshold configuration needed.
  
 ```
 z = |current_rate - rolling_mean| / rolling_std
