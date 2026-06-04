@@ -47,7 +47,8 @@ def main():
         service_node.destroy_node()
         lifecycle_node.destroy_node()
         graph_node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
         print("[ROSscope] Shut down cleanly.")
 
 

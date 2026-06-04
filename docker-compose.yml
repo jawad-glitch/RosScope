@@ -1,15 +1,4 @@
 services:
-  collector:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.collector
-    container_name: rosscope_collector
-    network_mode: host
-    environment:
-      - ROS_DOMAIN_ID=0
-      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-      - CYCLONEDDS_URI=<CycloneDDS><Domain><General><Interfaces><NetworkInterface name="eth0"/></Interfaces></General></Domain></CycloneDDS>
-
   prometheus:
     image: prom/prometheus:latest
     container_name: rosscope_prometheus
