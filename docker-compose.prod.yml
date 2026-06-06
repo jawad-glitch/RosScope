@@ -1,0 +1,35 @@
+services:
+  collector:
+    image: jawadglitch/rosscope:latest
+    container_name: rosscope_collector
+    network_mode: host
+    environment:
+      - ROS_DOMAIN_ID=0
+    volumes:
+      - ./rosscope.yaml:/rosscope/rosscope.yaml
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: rosscope_prometheus
+    network_mode: host
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: rosscope_grafana
+    network_mode: host
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=rosscope
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./dashboard/provisioning:/etc/grafana/provisioning
+      - ./dashboard:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus_data:
+  grafana_data:
