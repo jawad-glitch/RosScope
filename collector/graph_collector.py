@@ -11,6 +11,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import config
 from alerts import alert_manager
+from collector.registry import registry
 
 # ── FastAPI setup ────
 app = FastAPI()
@@ -21,56 +22,40 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-_collector = None
-
 @app.get("/api/graph")
 def get_graph():
-    if _collector is None:
+    if registry.graph is None:
         return {"nodes": [], "edges": []}
 
-    edges = _collector.edges
-    node_ids = set()
-
-    for edge in edges:
-        node_ids.add(edge['publisher'])
-        if edge['subscriber']:
-            node_ids.add(edge['subscriber'])
-        node_ids.add(edge['topic'])
+    edges = registry.graph.edges
+    known_nodes = registry.graph.known_nodes
+    known_topics = registry.graph.known_topics
 
     nodes = []
-    for node_id in node_ids:
-        node_type = 'topic' if node_id.count('/') > 1 or (node_id.count('/') == 1 and node_id != f"/{node_id.lstrip('/')}".split('/')[1]) else 'node'
-        nodes.append({'id': node_id, 'type': node_type})
+    for nid in known_nodes:
+        nodes.append({'id': nid, 'type': 'node'})
+    for tid in known_topics:
+        nodes.append({'id': tid, 'type': 'topic'})
 
     edges_out = []
     for e in edges:
-        edges_out.append({
-            "source": e['publisher'],
-            "target": e['topic'],
-            "type": "publishes"
-        })
+        edges_out.append({"source": e['publisher'], "target": e['topic'], "type": "publishes"})
         if e['subscriber']:
-            edges_out.append({
-                "source": e['topic'],
-                "target": e['subscriber'],
-                "type": "subscribes"
-            })
+            edges_out.append({"source": e['topic'], "target": e['subscriber'], "type": "subscribes"})
 
     return {"nodes": nodes, "edges": edges_out}
 
-
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "edges": len(_collector.edges) if _collector else 0}
+    g = registry.graph
+    return {"status": "ok", "edges": len(g.edges) if g else 0}
 
 @app.get("/")
 def serve_ui():
     html_path = os.path.join(os.path.dirname(__file__), '..', 'dashboard', 'ui.html')
     return FileResponse(html_path)
 
-def start_api(collector_node):
-    global _collector
-    _collector = collector_node
+def start_api():
     uvicorn.run(app, host="0.0.0.0", port=config.graph_port, log_level="error")
 
 @app.get("/api/alerts")
@@ -99,24 +84,21 @@ def resolve_alert(alert_id: str, note: str = None):
 
 @app.get("/api/topics")
 def get_topics():
-    collector = getattr(_collector, 'topic_collector', None)
-    if not collector:
+    if not registry.topic:
         return {"topics": []}
-    return {"topics": getattr(collector, 'latest_metrics', [])}
+    return {"topics": getattr(registry.topic, 'latest_metrics', [])}
 
 @app.get("/api/services")
 def get_services():
-    collector = getattr(_collector, 'service_collector', None)
-    if not collector:
+    if not registry.service:
         return {"services": []}
-    return {"services": getattr(collector, 'latest_service_metrics', [])}
+    return {"services": getattr(registry.service, 'latest_service_metrics', [])}
 
 @app.get("/api/nodes")
 def get_nodes():
-    collector = getattr(_collector, 'lifecycle_collector', None)
-    if not collector:
+    if not registry.lifecycle:
         return {"nodes": []}
-    return {"nodes": getattr(collector, 'latest_lifecycle_metrics', [])}
+    return {"nodes": getattr(registry.lifecycle, 'latest_lifecycle_metrics', [])}
 
 @app.get("/graph-viz")
 def serve_graph():
@@ -127,19 +109,46 @@ def serve_graph():
 class GraphCollector(Node):
     def __init__(self):
         super().__init__('rosscope_graph_collector')
-        self.edges = []
+        self._edges = []
+        self._known_nodes = set()
+        self._known_topics = set()
+        self._lock = threading.Lock()
         self.timer = self.create_timer(5.0, self.collect_metrics)
+
+    @property
+    def edges(self):
+        with self._lock:
+            return list(self._edges) 
+    
+    @property
+    def known_nodes(self):
+        with self._lock:
+            return set(self._known_nodes)
+
+    @property
+    def known_topics(self):
+        with self._lock:
+            return set(self._known_topics)
 
     def collect_metrics(self):
         topic_list = self.get_topic_names_and_types()
         edges = []
+        known_nodes = set()
+        known_topics = set()
 
         for topic_name, _ in topic_list:
             if topic_name.startswith('/rosout') or topic_name.startswith('/parameter'):
                 continue
 
+            known_topics.add(topic_name)
+
             publishers = self.get_publishers_info_by_topic(topic_name)
             subscribers = self.get_subscriptions_info_by_topic(topic_name)
+
+            for pub in publishers:
+                known_nodes.add(pub.node_name)
+            for sub in subscribers:
+                known_nodes.add(sub.node_name)
 
             for pub in publishers:
                 for sub in subscribers:
@@ -157,15 +166,19 @@ class GraphCollector(Node):
                         'subscriber': None
                     })
 
-        self.edges = edges
-        self.get_logger().info(f'Graph: {len(edges)} edges discovered')
+        with self._lock:
+            self._edges = edges
+            self._known_nodes = known_nodes
+            self._known_topics = known_topics
+
+        self.get_logger().info(f'Graph: {len(edges)} edges, {len(known_nodes)} nodes, {len(known_topics)} topics')
 
 
 def main():
     rclpy.init()
     node = GraphCollector()
 
-    api_thread = threading.Thread(target=start_api, args=(node,), daemon=True)
+    api_thread = threading.Thread(target=start_api, daemon=True)
     api_thread.start()
 
     try:

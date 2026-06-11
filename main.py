@@ -8,6 +8,7 @@ from collector.lifecycle_collector import LifecycleCollector
 from collector.graph_collector import GraphCollector, start_api
 from exporter.prometheus_exporter import ROSScopeExporter
 from config import config
+from collector.registry import registry
 
 def main():
     rclpy.init()
@@ -25,11 +26,13 @@ def main():
     lifecycle_node.exporter = exporter
 
     graph_node = GraphCollector()
-    graph_node.topic_collector = topic_node
-    graph_node.service_collector = service_node
-    graph_node.lifecycle_collector = lifecycle_node
 
-    api_thread = threading.Thread(target=start_api, args=(graph_node,), daemon=True)
+    registry.topic = topic_node
+    registry.service = service_node
+    registry.lifecycle = lifecycle_node
+    registry.graph = graph_node
+
+    api_thread = threading.Thread(target=start_api, daemon=True)
     api_thread.start()
 
     executor = MultiThreadedExecutor()
