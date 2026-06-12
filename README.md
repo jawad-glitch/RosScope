@@ -1,4 +1,3 @@
-cat > /mnt/user-data/outputs/README.md << 'ENDOFFILE'
 # ROSscope 🔭
 
 > Open source observability platform for ROS 2 robot fleets.
@@ -26,20 +25,20 @@ ROSscope fixes that.
 
 ## Features
 
-- **Topic monitoring** — publish rate (Hz), message count, publisher count per topic
-- **Service monitoring** — discovery and server availability across the fleet
-- **Lifecycle monitoring** — managed node state tracking (unconfigured/inactive/active/finalized)
-- **Anomaly detection** — z-score statistical baseline per topic, no threshold tuning required
-- **Alert management** — firing → acknowledged → resolved states with notes, persisted across restarts
-- **Root cause correlation** — traces failure cascades upstream to the origin node automatically
-- **Computation graph** — live directed graph of publisher/subscriber relationships
-- **Graph visualization** — interactive D3.js force-directed graph
-- **Web UI** — overview, topics, services, alerts, and graph pages at \`http://localhost:8001\`
-- **Prometheus exporter** — 15 custom ROS 2 metrics at \`/metrics\`
-- **Grafana dashboard** — pre-built, auto-provisioned, zero manual setup
-- **Slack + email notifications** — alerts delivered to your team automatically
-- **Configurable** — \`rosscope.yaml\` controls all behavior
-- **One command install** — \`curl -sSL .../install.sh | bash\`
+- **Topic monitoring** - publish rate (Hz), message count, publisher count per topic
+- **Service monitoring** - discovery and server availability across the fleet
+- **Lifecycle monitoring** - managed node state tracking (unconfigured/inactive/active/finalized)
+- **Anomaly detection** - z-score statistical baseline per topic, no threshold tuning required
+- **Alert management** - firing → acknowledged → resolved states with notes, persisted across restarts
+- **Root cause correlation** - traces failure cascades upstream to the origin node automatically
+- **Computation graph** - live directed graph of publisher/subscriber relationships
+- **Graph visualization** - interactive D3.js force-directed graph
+- **Web UI** - overview, topics, services, alerts, and graph pages at \`http://localhost:8001\`
+- **Prometheus exporter** - 15 custom ROS 2 metrics at \`/metrics\`
+- **Grafana dashboard** - pre-built, auto-provisioned, zero manual setup
+- **Slack + email notifications** - alerts delivered to your team automatically
+- **Configurable** - \`rosscope.yaml\` controls all behavior
+- **One command install** - \`curl -sSL .../install.sh | bash\`
 
 ---
 
@@ -319,24 +318,24 @@ ROSscope/
 ## Roadmap
 
 ### v0.2.0 ✅
-- [x] Root cause correlation — trace failure cascades upstream to origin node
-- [x] Port consolidation — single port for all ROSscope endpoints
-- [x] Persistent alert history — survives restarts
+- [x] Root cause correlation - trace failure cascades upstream to origin node
+- [x] Port consolidation - single port for all ROSscope endpoints
+- [x] Persistent alert history - survives restarts
 - [x] Services page in web UI
 
 ### v0.3.0
-- [ ] TimescaleDB — persistent metric history
+- [ ] TimescaleDB - persistent metric history
 - [ ] Multi-machine fleet aggregation
 - [ ] TF tree freshness monitoring
 - [ ] ROS 2 bag replay for post-mortem analysis
 
 ### v1.0.0 (production ready)
-- [ ] Predictive maintenance — ML-based failure forecasting
-- [ ] Auto-remediation — node restart, traffic reroute, failover
+- [ ] Predictive maintenance - ML-based failure forecasting
+- [ ] Auto-remediation - node restart, traffic reroute, failover
 - [ ] Helm chart for Kubernetes fleet deployment
 - [ ] Full authentication and multi-user support
-- [ ] Grafana deprecation — web UI covers all functionality
-- [ ] FastRTPS compatibility — no DDS configuration required
+- [ ] Grafana deprecation - web UI covers all functionality
+- [ ] FastRTPS compatibility - no DDS configuration required
 
 ---
 
@@ -366,7 +365,7 @@ cd ROSscope
 
 ## Author
 
-Muhammad Jawad — DevOps & AIOps Engineer
+Muhammad Jawad - DevOps & AIOps Engineer
 [github.com/jawad-glitch](https://github.com/jawad-glitch)
 muhammadjawadok@gmail.com
 
@@ -375,4 +374,3 @@ muhammadjawadok@gmail.com
 ## License
 
 MIT License — use it, fork it, build on it.
-ENDOFFILE
