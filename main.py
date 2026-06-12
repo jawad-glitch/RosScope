@@ -13,8 +13,7 @@ from collector.registry import registry
 def main():
     rclpy.init()
 
-    exporter = ROSScopeExporter(port=config.metrics_port)
-    exporter.start()
+    exporter = ROSScopeExporter()h
 
     topic_node = TopicCollector()
     topic_node.exporter = exporter

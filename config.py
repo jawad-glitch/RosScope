@@ -10,7 +10,6 @@ class ROSScopeConfig:
         'anomaly_min_samples': 10,
         'exclude_topics': ['/rosout', '/parameter_events'],
         'exclude_topic_prefixes': ['/rosscope'],
-        'metrics_port': 8000,
         'graph_port': 8001,
         'ui_port': 8080,
         'ros_domain_id': 0,
@@ -47,7 +46,7 @@ class ROSScopeConfig:
         return config
 
     def _validate(self):
-        for port_key in ['metrics_port', 'graph_port', 'ui_port']:
+        for port_key in ['graph_port', 'ui_port']:
             port = self._config.get(port_key)
             if not isinstance(port, int) or not (1024 <= port <= 65535):
                 print(f"[ROSscope] Invalid {port_key}: {port}, using default")

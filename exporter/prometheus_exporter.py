@@ -1,13 +1,8 @@
 #!/usr/bin/env python3
-from prometheus_client import start_http_server, Gauge
-import threading
+from prometheus_client import Gauge
 
 class ROSScopeExporter:
-    """Exposes ROSscope metrics over HTTP for Prometheus to scrape."""
-
-    def __init__(self, port=8000):
-        self.port = port
-
+    def __init__(self):
         self.topic_rate_hz = Gauge(
             'rosscope_topic_rate_hz',
             'Message publish rate in Hz for a ROS 2 topic',
@@ -60,31 +55,18 @@ class ROSScopeExporter:
             'rosscope_managed_nodes_total',
             'Total number of discovered lifecycle managed nodes'
         )
-
         self.topic_anomaly = Gauge(
             'rosscope_topic_anomaly',
             '1 if topic rate is anomalous, 0 if normal',
             ['topic', 'msg_type']
         )
-
         self.topic_z_score = Gauge(
             'rosscope_topic_z_score',
             'Z-score of current topic rate vs rolling baseline',
             ['topic', 'msg_type']
         )
 
-    def start(self):
-        """Start the HTTP server in a background thread."""
-        thread = threading.Thread(
-            target=start_http_server,
-            args=(self.port,),
-            daemon=True
-        )
-        thread.start()
-        print(f"[ROSscope] Prometheus exporter live at http://localhost:{self.port}/metrics")
-
     def update(self, metrics):
-        """Update topic metrics."""
         self.active_topics_total.set(len(metrics))
         for item in metrics:
             topic = item['topic']
@@ -96,21 +78,19 @@ class ROSScopeExporter:
             self.topic_z_score.labels(topic=topic, msg_type=msg_type).set(item['z_score'])
 
     def update_services(self, metrics):
-        """Update service metrics."""
         self.active_services_total.set(len(metrics))
         for item in metrics:
-            service = item['Service']
-            stype = item['Service_type']
-            self.service_response_time.labels(service=service, service_type=stype).set(item['response_time'])
+            service = item['service']
+            stype = item['type']
+            self.service_response_time.labels(service=service, service_type=stype).set(item['response_time_ms'])
             self.service_healthy.labels(service=service, service_type=stype).set(
-                1.0 if item['response_time'] > 0 else 0.0
+                1.0 if item['healthy'] else 0.0
             )
             self.service_server_count.labels(service=service, service_type=stype).set(
                 item.get('server_count', 0)
             )
 
     def update_lifecycle(self, metrics):
-        """Update lifecycle node metrics."""
         self.managed_nodes_total.set(len(metrics))
         for item in metrics:
             node = item['node']

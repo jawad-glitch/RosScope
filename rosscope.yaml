@@ -15,7 +15,7 @@ rosscope:
     - /rosscope
 
   # Ports
-  metrics_port: 8000
+  # metrics_port removed in v0.2.0 - metrics now served at /metrics on graph_port
   graph_port: 8001
   ui_port: 8080
 

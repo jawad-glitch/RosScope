@@ -12,6 +12,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import config
 from alerts import alert_manager
 from collector.registry import registry
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from fastapi.responses import Response, FileResponse
 
 # ── FastAPI setup ────
 app = FastAPI()
@@ -21,6 +23,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+
+@app.get("/metrics")
+def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 @app.get("/api/graph")
 def get_graph():
